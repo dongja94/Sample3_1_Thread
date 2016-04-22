@@ -1,5 +1,6 @@
 package com.begentgroup.samplethread;
 
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -9,6 +10,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -17,6 +19,9 @@ public class MainActivity extends AppCompatActivity {
 
     private static final int MESSAGE_PROGRESS = 1;
     private static final int MESSAGE_COMPLETE = 2;
+
+    private static final int MESSAGE_BACKKEY_TIMEOUT = 3;
+    private static final int TIME_BACKKEY = 2000;
 
     Handler mHandler = new Handler(Looper.getMainLooper()){
         @Override
@@ -32,9 +37,27 @@ public class MainActivity extends AppCompatActivity {
                     textView.setText("download completed");
                     progressView.setProgress(100);
                     break;
+                case MESSAGE_BACKKEY_TIMEOUT :
+                    isBackPressed = false;
+                    break;
             }
         }
     };
+
+    boolean isBackPressed = false;
+
+    @Override
+    public void onBackPressed() {
+        if (!isBackPressed) {
+            Toast.makeText(this, "one more back key ... " , Toast.LENGTH_SHORT).show();
+            isBackPressed = true;
+            mHandler.sendEmptyMessageDelayed(MESSAGE_BACKKEY_TIMEOUT, TIME_BACKKEY);
+        } else {
+            mHandler.removeMessages(MESSAGE_BACKKEY_TIMEOUT);
+            super.onBackPressed();
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -73,33 +96,72 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void startDownload() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                int progress = 0;
-                while(progress <= 100) {
-//                    textView.setText("progress : " + progress);
-//                    progressView.setProgress(progress);
+    class MyTask extends AsyncTask<String, Integer, Boolean> {
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            textView.setText("start...");
+            progressView.setMax(100);
+        }
 
-//                    Message msg = mHandler.obtainMessage(MESSAGE_PROGRESS, progress, 0);
-//                    mHandler.sendMessage(msg);
-                    mHandler.post(new ProgressRunnable(progress));
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            super.onProgressUpdate(values);
+            int progress = values[0];
+            textView.setText("progress : " + progress);
+            progressView.setProgress(progress);
+        }
 
-                    try {
-                        Thread.sleep(500);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    progress+=5;
+        @Override
+        protected Boolean doInBackground(String... params) {
+            int progress = 0;
+            while(progress <= 100) {
+                publishProgress(progress);
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
-//                textView.setText("download completed");
-//                progressView.setProgress(100);
-
-//                mHandler.sendEmptyMessage(MESSAGE_COMPLETE);
-                mHandler.post(new CompleteRunnable());
-
+                progress+=5;
             }
-        }).start();
+            return true;
+        }
+
+        @Override
+        protected void onPostExecute(Boolean aBoolean) {
+            super.onPostExecute(aBoolean);
+            textView.setText("download completed");
+            progressView.setProgress(100);
+        }
+    }
+    private void startDownload() {
+        new MyTask().execute();
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                int progress = 0;
+//                while(progress <= 100) {
+////                    textView.setText("progress : " + progress);
+////                    progressView.setProgress(progress);
+//
+////                    Message msg = mHandler.obtainMessage(MESSAGE_PROGRESS, progress, 0);
+////                    mHandler.sendMessage(msg);
+//                    mHandler.post(new ProgressRunnable(progress));
+//
+//                    try {
+//                        Thread.sleep(500);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                    progress+=5;
+//                }
+////                textView.setText("download completed");
+////                progressView.setProgress(100);
+//
+////                mHandler.sendEmptyMessage(MESSAGE_COMPLETE);
+//                mHandler.post(new CompleteRunnable());
+//
+//            }
+//        }).start();
     }
 }
